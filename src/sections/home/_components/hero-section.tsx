@@ -1,8 +1,7 @@
-
 "use client";
 
-import { useRef } from "react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { MouseEvent, ReactNode } from "react";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -12,6 +11,9 @@ import {
   useReducedMotion,
   useScroll,
   useTransform,
+  useMotionValue,
+  useMotionTemplate,
+  useSpring,
   MotionConfig,
 } from "framer-motion";
 
@@ -21,16 +23,63 @@ import {
   Github,
   Linkedin,
   Mail,
+  MapPin,
 } from "lucide-react";
 
 import { PERSONAL_INFO } from "@/data/navigation";
 import { HERO } from "@/data/home";
 
 /* ==========================================================
-   MD WARISH — EDITORIAL HERO
+   MD WARISH — EDITORIAL HERO (v2)
    ========================================================== */
 
 const EASE = [0.16, 1, 0.3, 1] as const;
+
+/* Presentation-only constants (edit freely) */
+const STACK_MARQUEE = [
+  "Angular",
+  "TypeScript",
+  "React",
+  "Next.js",
+  "Node.js",
+  "Express",
+  "PostgreSQL",
+  "Prisma",
+  "MongoDB",
+  "Socket.io",
+  "JWT / RBAC",
+  "LLM Integrations",
+];
+
+const STATS = [
+  { value: "8+", label: "Months in production" },
+  { value: "3+", label: "Live products shipped" },
+  { value: "Full", label: "Stack ownership" },
+];
+
+/* ==========================================================
+   HOOKS
+   ========================================================== */
+
+function useIndiaTime() {
+  const [time, setTime] = useState<string | null>(null);
+
+  useEffect(() => {
+    const format = () =>
+      new Intl.DateTimeFormat("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "Asia/Kolkata",
+      }).format(new Date());
+
+    setTime(format());
+    const id = window.setInterval(() => setTime(format()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  return time;
+}
 
 /* ==========================================================
    REVEAL
@@ -49,11 +98,7 @@ function Reveal({
     <motion.div
       initial={{ opacity: 0, y: 28 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{
-        duration: 0.9,
-        delay,
-        ease: EASE,
-      }}
+      transition={{ duration: 0.9, delay, ease: EASE }}
       className={className}
     >
       {children}
@@ -62,9 +107,51 @@ function Reveal({
 }
 
 /* ==========================================================
+   MAGNETIC WRAPPER
+   ========================================================== */
+
+function Magnetic({
+  children,
+  strength = 0.28,
+  className = "",
+}: {
+  children: ReactNode;
+  strength?: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const reducedMotion = useReducedMotion();
+
+  const x = useSpring(0, { stiffness: 220, damping: 16, mass: 0.4 });
+  const y = useSpring(0, { stiffness: 220, damping: 16, mass: 0.4 });
+
+  const handleMove = (e: MouseEvent<HTMLDivElement>) => {
+    if (reducedMotion || !ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    x.set((e.clientX - (rect.left + rect.width / 2)) * strength);
+    y.set((e.clientY - (rect.top + rect.height / 2)) * strength);
+  };
+
+  const handleLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+
+  return (
+    <motion.div
+      ref={ref}
+      onMouseMove={handleMove}
+      onMouseLeave={handleLeave}
+      style={{ x, y }}
+      className={`inline-block ${className}`}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/* ==========================================================
    CUSTOM SVG ARTWORK
-   Architectural lines / engineered motion
-   No generic grids or orbit circles
    ========================================================== */
 
 function ArchitecturalArtwork() {
@@ -93,30 +180,13 @@ function ArchitecturalArtwork() {
           y2="720"
           gradientUnits="userSpaceOnUse"
         >
-          <stop
-            offset="0%"
-            stopColor="var(--accent)"
-            stopOpacity="0"
-          />
-          <stop
-            offset="34%"
-            stopColor="var(--accent)"
-            stopOpacity="0.38"
-          />
-          <stop
-            offset="74%"
-            stopColor="var(--accent)"
-            stopOpacity="0.16"
-          />
-          <stop
-            offset="100%"
-            stopColor="var(--accent)"
-            stopOpacity="0"
-          />
+          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0" />
+          <stop offset="34%" stopColor="var(--accent)" stopOpacity="0.38" />
+          <stop offset="74%" stopColor="var(--accent)" stopOpacity="0.16" />
+          <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
         </linearGradient>
       </defs>
 
-      {/* Architectural flowing paths */}
       {paths.map((d, index) => (
         <motion.path
           key={index}
@@ -134,7 +204,6 @@ function ArchitecturalArtwork() {
         />
       ))}
 
-      {/* Precision points */}
       {[
         [390, 125],
         [405, 185],
@@ -151,16 +220,9 @@ function ArchitecturalArtwork() {
             delay: 1.2 + index * 0.18,
             ease: EASE,
           }}
-          style={{
-            transformOrigin: `${cx}px ${cy}px`,
-          }}
+          style={{ transformOrigin: `${cx}px ${cy}px` }}
         >
-          <circle
-            cx={cx}
-            cy={cy}
-            r="3"
-            fill="var(--accent)"
-          />
+          <circle cx={cx} cy={cy} r="3" fill="var(--accent)" />
           <circle
             cx={cx}
             cy={cy}
@@ -172,19 +234,13 @@ function ArchitecturalArtwork() {
         </motion.g>
       ))}
 
-      {/* Drafting marks */}
-      <g
-        stroke="var(--accent)"
-        strokeOpacity="0.30"
-        strokeWidth="0.8"
-      >
+      <g stroke="var(--accent)" strokeOpacity="0.30" strokeWidth="0.8">
         <path d="M340 340 H370 M355 325 V355" />
         <path d="M430 260 H460 M445 245 V275" />
         <path d="M390 315 L405 330" />
         <path d="M390 330 L405 315" />
       </g>
 
-      {/* Subtle reference lettering */}
       <g
         fill="var(--accent)"
         fillOpacity="0.55"
@@ -201,10 +257,10 @@ function ArchitecturalArtwork() {
 }
 
 /* ==========================================================
-   EDITORIAL PORTRAIT
+   PORTRAIT
    ========================================================== */
 
-function Portrait() {
+function Portrait({ time }: { time: string | null }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
 
@@ -213,17 +269,10 @@ function Portrait() {
     offset: ["start end", "end start"],
   });
 
-  const imageY = useTransform(
-    scrollYProgress,
-    [0, 1],
-    ["-5%", "7%"]
-  );
+  const imageY = useTransform(scrollYProgress, [0, 1], ["-5%", "7%"]);
 
   return (
-    <div
-      ref={frameRef}
-      className="relative mx-auto w-full max-w-[490px]"
-    >
+    <div ref={frameRef} className="relative mx-auto w-full max-w-[490px]">
       {/* Offset architectural frame */}
       <div
         aria-hidden="true"
@@ -237,29 +286,13 @@ function Portrait() {
       />
 
       <motion.div
-        initial={{
-          opacity: 0,
-          clipPath: "inset(0 0 100% 0)",
-        }}
-        animate={{
-          opacity: 1,
-          clipPath: "inset(0 0 0% 0)",
-        }}
-        transition={{
-          duration: 1.45,
-          delay: 0.35,
-          ease: EASE,
-        }}
-        className="
-          relative isolate aspect-[4/5]
-          w-full overflow-hidden
-          bg-bg-soft
-        "
+        initial={{ opacity: 0, clipPath: "inset(0 0 100% 0)" }}
+        animate={{ opacity: 1, clipPath: "inset(0 0 0% 0)" }}
+        transition={{ duration: 1.45, delay: 0.35, ease: EASE }}
+        className="relative isolate aspect-[4/5] w-full overflow-hidden bg-bg-soft"
       >
         <motion.div
-          style={{
-            y: reducedMotion ? 0 : imageY,
-          }}
+          style={{ y: reducedMotion ? 0 : imageY }}
           className="absolute -inset-y-[8%] inset-x-0"
         >
           <Image
@@ -273,23 +306,49 @@ function Portrait() {
           />
         </motion.div>
 
-        {/* Gentle lower contrast, no facial effects */}
         <div
           aria-hidden="true"
           className="
             pointer-events-none absolute inset-0
             bg-gradient-to-t
-            from-[#07090D]/55
+            from-[#07090D]/60
             via-transparent
             to-transparent
           "
         />
 
+        {/* Top chips */}
+        <div className="absolute left-4 right-4 top-4 flex items-start justify-between gap-3 sm:left-6 sm:right-6 sm:top-6">
+          <span
+            className="
+              inline-flex items-center gap-2
+              rounded-full border border-white/20
+              bg-black/30 px-3 py-1.5
+              font-mono text-[9px] uppercase tracking-[0.18em]
+              text-white/85 backdrop-blur-md
+            "
+          >
+            <MapPin aria-hidden="true" className="h-3 w-3" />
+            Delhi-NCR, IN
+          </span>
+
+          <span
+            className="
+              rounded-full border border-white/20
+              bg-black/30 px-3 py-1.5
+              font-mono text-[9px] uppercase tracking-[0.18em]
+              text-white/85 backdrop-blur-md
+            "
+          >
+            {time ?? "--:--"} IST
+          </span>
+        </div>
+
         {/* Inside-frame signature */}
         <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-4 text-white sm:bottom-7 sm:left-7 sm:right-7">
           <div>
             <span className="block font-mono text-[9px] uppercase tracking-[0.25em] text-white/65">
-              Independent Developer
+              Full Stack Developer
             </span>
             <span className="mt-2 block font-display text-[clamp(1.4rem,3vw,2.2rem)] italic leading-none">
               Built with intention.
@@ -302,12 +361,10 @@ function Portrait() {
         </div>
       </motion.div>
 
-      {/* Bottom external reference labels */}
       <div className="mt-5 flex items-center justify-between gap-4 border-t border-border pt-3">
         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-muted">
           The person behind the code
         </span>
-
         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent">
           MD / W
         </span>
@@ -322,20 +379,11 @@ function Portrait() {
 
 function SocialLinks() {
   const links = [
-    {
-      label: "GitHub",
-      href: PERSONAL_INFO.github,
-      icon: Github,
-    },
-    {
-      label: "LinkedIn",
-      href: PERSONAL_INFO.linkedin,
-      icon: Linkedin,
-    },
+    { label: "GitHub", href: PERSONAL_INFO.github, icon: Github },
+    { label: "LinkedIn", href: PERSONAL_INFO.linkedin, icon: Linkedin },
   ].filter(
     (link) =>
-      typeof link.href === "string" &&
-      /^https?:\/\//.test(link.href)
+      typeof link.href === "string" && /^https?:\/\//.test(link.href)
   );
 
   return (
@@ -352,24 +400,17 @@ function SocialLinks() {
           aria-label={`${label} — opens in a new tab`}
           className="
             group inline-flex items-center gap-2
-            text-xs font-medium
-            text-text-muted
+            text-xs font-medium text-text-muted
             transition-colors duration-300
             hover:text-accent
           "
         >
-          <Icon
-            aria-hidden="true"
-            className="h-4 w-4"
-          />
-
+          <Icon aria-hidden="true" className="h-4 w-4" />
           {label}
-
           <ArrowUpRight
             aria-hidden="true"
             className="
-              h-3 w-3
-              transition-transform duration-300
+              h-3 w-3 transition-transform duration-300
               group-hover:-translate-y-0.5
               group-hover:translate-x-0.5
             "
@@ -382,20 +423,56 @@ function SocialLinks() {
           href={`mailto:${PERSONAL_INFO.email}`}
           className="
             inline-flex items-center gap-2
-            text-xs font-medium
-            text-text-muted
+            text-xs font-medium text-text-muted
             transition-colors duration-300
             hover:text-accent
           "
         >
-          <Mail
-            aria-hidden="true"
-            className="h-4 w-4"
-          />
+          <Mail aria-hidden="true" className="h-4 w-4" />
           Email
         </a>
       )}
     </nav>
+  );
+}
+
+/* ==========================================================
+   STACK MARQUEE
+   ========================================================== */
+
+function StackMarquee() {
+  const items = [...STACK_MARQUEE, ...STACK_MARQUEE];
+
+  return (
+    <div
+      aria-label="Core technologies"
+      className="relative overflow-hidden border-y border-border py-4"
+      style={{
+        maskImage:
+          "linear-gradient(to right, transparent, #000 10%, #000 90%, transparent)",
+        WebkitMaskImage:
+          "linear-gradient(to right, transparent, #000 10%, #000 90%, transparent)",
+      }}
+    >
+      <motion.div
+        className="flex w-max items-center gap-10 whitespace-nowrap"
+        animate={{ x: ["0%", "-50%"] }}
+        transition={{ duration: 38, ease: "linear", repeat: Infinity }}
+      >
+        {items.map((item, index) => (
+          <span
+            key={`${item}-${index}`}
+            className="flex items-center gap-10 font-mono text-[11px] uppercase tracking-[0.22em] text-text-muted"
+          >
+            {item}
+            <span
+              aria-hidden="true"
+              className="h-1 w-1 rounded-full bg-accent"
+            />
+          </span>
+        ))}
+      </motion.div>
+    </div>
   );
 }
 
@@ -406,61 +483,62 @@ function SocialLinks() {
 export function HeroSection() {
   const heroRef = useRef<HTMLElement>(null);
   const reducedMotion = useReducedMotion();
+  const time = useIndiaTime();
 
+  /* Cursor spotlight */
+  const mouseX = useMotionValue(-400);
+  const mouseY = useMotionValue(-400);
+  const spotX = useSpring(mouseX, { stiffness: 90, damping: 22 });
+  const spotY = useSpring(mouseY, { stiffness: 90, damping: 22 });
+  const spotlight = useMotionTemplate`radial-gradient(520px circle at ${spotX}px ${spotY}px, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%)`;
+
+  const handleMouseMove = (e: MouseEvent<HTMLElement>) => {
+    if (reducedMotion || !heroRef.current) return;
+    const rect = heroRef.current.getBoundingClientRect();
+    mouseX.set(e.clientX - rect.left);
+    mouseY.set(e.clientY - rect.top);
+  };
+
+  /* Scroll-linked transforms */
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"],
   });
 
-  /* Scroll-linked transforms */
-  const titleY = useTransform(
-    scrollYProgress,
-    [0, 1],
-    [0, -85]
-  );
-
-  const artworkY = useTransform(
-    scrollYProgress,
-    [0, 1],
-    [0, 130]
-  );
-
-  const portraitY = useTransform(
-    scrollYProgress,
-    [0, 1],
-    [0, 55]
-  );
-
-  const fadeOut = useTransform(
-    scrollYProgress,
-    [0, 0.9],
-    [1, 0.52]
-  );
+  const titleY = useTransform(scrollYProgress, [0, 1], [0, -85]);
+  const artworkY = useTransform(scrollYProgress, [0, 1], [0, 130]);
+  const portraitY = useTransform(scrollYProgress, [0, 1], [0, 55]);
+  const fadeOut = useTransform(scrollYProgress, [0, 0.9], [1, 0.52]);
 
   return (
     <MotionConfig reducedMotion="user">
       <section
         ref={heroRef}
+        onMouseMove={handleMouseMove}
         aria-labelledby="hero-heading"
         className="
           relative isolate overflow-hidden
           border-b border-border
           bg-bg
-          pt-32 pb-12
-          sm:pt-36 sm:pb-16
-          lg:min-h-[850px]
-          lg:pt-40 lg:pb-14
+          pt-28 pb-0
+          sm:pt-32
+          lg:min-h-[900px]
+          lg:pt-36
         "
       >
-        {/* ================================================
-            AMBIENT ARCHITECTURAL BACKGROUND
-           ================================================ */}
+        {/* Cursor spotlight */}
+        {!reducedMotion && (
+          <motion.div
+            aria-hidden="true"
+            style={{ background: spotlight }}
+            className="pointer-events-none absolute inset-0 z-0 hidden lg:block"
+          />
+        )}
 
+        {/* Ambient artwork */}
         <motion.div
           aria-hidden="true"
-          style={{
-            y: reducedMotion ? 0 : artworkY,
-          }}
+          style={{ y: reducedMotion ? 0 : artworkY }}
           className="
             pointer-events-none absolute
             -right-[22%] top-[5%]
@@ -477,7 +555,7 @@ export function HeroSection() {
           <ArchitecturalArtwork />
         </motion.div>
 
-        {/* Quiet edge labeling */}
+        {/* Edge label */}
         <div
           aria-hidden="true"
           className="
@@ -496,7 +574,7 @@ export function HeroSection() {
 
         <div className="container-x relative z-10">
           {/* ================================================
-              TOP INDEX
+              TOP META BAR
              ================================================ */}
 
           <Reveal
@@ -504,7 +582,8 @@ export function HeroSection() {
             className="
               mb-12 flex flex-wrap
               items-center justify-between
-              gap-4 border-b border-border
+              gap-x-6 gap-y-3
+              border-b border-border
               pb-5
               sm:mb-16
             "
@@ -512,20 +591,20 @@ export function HeroSection() {
             <div className="flex items-center gap-3">
               <span
                 aria-hidden="true"
-                className="
-                  h-1.5 w-1.5
-                  rounded-full bg-accent
-                "
+                className="h-1.5 w-1.5 rounded-full bg-accent"
               />
-
-              <span className="label-mono">
-                Independent Digital Craftsman
-              </span>
+              <span className="label-mono">Independent Digital Craftsman</span>
             </div>
 
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
-              Portfolio / 2026
-            </span>
+            <div className="flex items-center gap-6">
+              <span className="hidden items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted sm:inline-flex">
+                <MapPin aria-hidden="true" className="h-3 w-3" />
+                Delhi-NCR · {time ?? "--:--"} IST
+              </span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
+                Portfolio / 2026
+              </span>
+            </div>
           </Reveal>
 
           {/* ================================================
@@ -562,11 +641,7 @@ export function HeroSection() {
                     <motion.span
                       initial={{ y: "115%" }}
                       animate={{ y: "0%" }}
-                      transition={{
-                        duration: 1.2,
-                        delay: 0.25,
-                        ease: EASE,
-                      }}
+                      transition={{ duration: 1.2, delay: 0.25, ease: EASE }}
                       className="block"
                     >
                       MD
@@ -577,11 +652,7 @@ export function HeroSection() {
                     <motion.span
                       initial={{ y: "115%" }}
                       animate={{ y: "0%" }}
-                      transition={{
-                        duration: 1.25,
-                        delay: 0.38,
-                        ease: EASE,
-                      }}
+                      transition={{ duration: 1.25, delay: 0.38, ease: EASE }}
                       className="block italic text-accent"
                     >
                       Warish<span className="not-italic">.</span>
@@ -590,11 +661,7 @@ export function HeroSection() {
                 </h1>
               </div>
 
-              {/* Short editorial declaration */}
-              <Reveal
-                delay={0.75}
-                className="pb-2 lg:col-span-3 lg:pb-8"
-              >
+              <Reveal delay={0.75} className="pb-2 lg:col-span-3 lg:pb-8">
                 <div className="max-w-[245px] border-l border-[color:var(--border-strong)] pl-5">
                   <p className="font-display text-2xl italic leading-tight text-ink sm:text-3xl">
                     Design-minded.
@@ -625,14 +692,11 @@ export function HeroSection() {
               lg:gap-10
             "
           >
-            {/* LEFT CONTENT */}
-
+            {/* LEFT */}
             <div className="order-2 lg:order-1 lg:col-span-5 lg:pt-10">
               <Reveal delay={0.65}>
                 <div className="max-w-[450px]">
-                  <span className="label-mono">
-                    What I do / 01
-                  </span>
+                  <span className="label-mono">What I do / 01</span>
 
                   <h2
                     className="
@@ -645,9 +709,7 @@ export function HeroSection() {
                   >
                     Thoughtful design.
                     <br />
-                    <span className="italic text-accent">
-                      Powerful code.
-                    </span>
+                    <span className="italic text-accent">Powerful code.</span>
                   </h2>
 
                   <p className="mt-6 max-w-[415px] text-base leading-[1.85] text-text-muted">
@@ -656,38 +718,35 @@ export function HeroSection() {
                 </div>
               </Reveal>
 
-              {/* CTA BLOCK */}
-
+              {/* CTAs */}
               <Reveal delay={0.8}>
-                <div className="mt-9 flex flex-wrap items-center gap-5">
-                  <Link
-                    href="/projects"
-                    className="
-                      group inline-flex min-h-[54px]
-                      items-center justify-center
-                      gap-5 rounded-full
-                      bg-accent
-                      px-7 py-4
-                      text-sm font-semibold
-                      text-[color:var(--on-accent)]
-                      transition-[background-color,transform]
-                      duration-300
-                      hover:-translate-y-0.5
-                      hover:bg-accent-hover
-                    "
-                  >
-                    Explore my work
-
-                    <ArrowUpRight
-                      aria-hidden="true"
+                <div className="mt-9 flex flex-wrap items-center gap-6">
+                  <Magnetic>
+                    <Link
+                      href="/projects"
                       className="
-                        h-4 w-4
-                        transition-transform duration-300
-                        group-hover:-translate-y-0.5
-                        group-hover:translate-x-0.5
+                        group inline-flex min-h-[54px]
+                        items-center justify-center
+                        gap-5 rounded-full
+                        bg-accent
+                        px-7 py-4
+                        text-sm font-semibold
+                        text-[color:var(--on-accent)]
+                        transition-colors duration-300
+                        hover:bg-accent-hover
                       "
-                    />
-                  </Link>
+                    >
+                      Explore my work
+                      <ArrowUpRight
+                        aria-hidden="true"
+                        className="
+                          h-4 w-4 transition-transform duration-300
+                          group-hover:-translate-y-0.5
+                          group-hover:translate-x-0.5
+                        "
+                      />
+                    </Link>
+                  </Magnetic>
 
                   <Link
                     href="/contact"
@@ -695,31 +754,44 @@ export function HeroSection() {
                       link-luxe
                       inline-flex min-h-[48px]
                       items-center gap-2
-                      text-sm font-semibold
-                      text-ink
+                      text-sm font-semibold text-ink
                       transition-colors duration-300
                       hover:text-accent
                     "
                   >
-                    Let's collaborate
-                    <ArrowUpRight
-                      aria-hidden="true"
-                      className="h-4 w-4"
-                    />
+                    Let&apos;s collaborate
+                    <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
                   </Link>
                 </div>
               </Reveal>
 
-              {/* AVAILABILITY */}
+              {/* Stats */}
+              <Reveal delay={0.95}>
+                <dl className="mt-12 grid max-w-[450px] grid-cols-3 gap-4 border-t border-border pt-6">
+                  {STATS.map((stat) => (
+                    <div key={stat.label}>
+                      <dt className="sr-only">{stat.label}</dt>
+                      <dd>
+                        <span className="block font-display text-3xl italic leading-none text-ink sm:text-4xl">
+                          {stat.value}
+                        </span>
+                        <span className="mt-2 block font-mono text-[9px] uppercase leading-snug tracking-[0.14em] text-text-muted">
+                          {stat.label}
+                        </span>
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </Reveal>
 
+              {/* Availability */}
               {PERSONAL_INFO.availability && (
-                <Reveal delay={0.9}>
-                  <div className="mt-10 flex items-center gap-3">
+                <Reveal delay={1.05}>
+                  <div className="mt-8 flex items-center gap-3">
                     <span className="relative flex h-2 w-2">
                       <span className="absolute inset-0 animate-ping rounded-full bg-[var(--success)] opacity-30" />
                       <span className="relative h-2 w-2 rounded-full bg-[var(--success)]" />
                     </span>
-
                     <span className="text-xs text-text-muted">
                       {PERSONAL_INFO.availability}
                     </span>
@@ -728,12 +800,9 @@ export function HeroSection() {
               )}
             </div>
 
-            {/* RIGHT PORTRAIT */}
-
+            {/* RIGHT */}
             <motion.div
-              style={{
-                y: reducedMotion ? 0 : portraitY,
-              }}
+              style={{ y: reducedMotion ? 0 : portraitY }}
               className="
                 relative order-1
                 w-full max-w-[520px]
@@ -744,12 +813,12 @@ export function HeroSection() {
                 lg:justify-self-end
               "
             >
-              <Portrait />
+              <Portrait time={time} />
             </motion.div>
           </div>
 
           {/* ================================================
-              BOTTOM EDITORIAL BAR
+              BOTTOM BAR
              ================================================ */}
 
           <Reveal delay={1.1}>
@@ -767,7 +836,6 @@ export function HeroSection() {
                 <span className="font-display text-4xl italic text-accent">
                   W.
                 </span>
-
                 <span className="font-mono text-[10px] uppercase leading-relaxed tracking-[0.14em] text-text-muted">
                   Crafting the web
                   <br />
@@ -791,7 +859,6 @@ export function HeroSection() {
                 "
               >
                 Scroll to explore
-
                 <span
                   className="
                     flex h-10 w-10
@@ -804,15 +871,17 @@ export function HeroSection() {
                     group-hover:border-accent
                   "
                 >
-                  <ArrowDown
-                    aria-hidden="true"
-                    className="h-4 w-4"
-                  />
+                  <ArrowDown aria-hidden="true" className="h-4 w-4" />
                 </span>
               </a>
             </div>
           </Reveal>
         </div>
+
+        {/* Full-bleed tech marquee */}
+        <Reveal delay={1.25} className="relative z-10 mt-14 lg:mt-16">
+          <StackMarquee />
+        </Reveal>
       </section>
     </MotionConfig>
   );
